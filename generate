@@ -2,8 +2,8 @@
 
 require 'mongo'
 
-host='10.20.13.4'
-port=27017
+host=ARGV[0]
+port=ARGV[1]
 
 subgraph = Hash.new
 id = 0;
@@ -39,12 +39,13 @@ mongoss = Hash.new
 
 
 puts "digraph G {"
+puts "label=\"Mongo archi found from "+host+":"+port+"\";"
 puts "compound=true"
 puts "nodesep=1.0;"
 subgraph.each{ |name,replicaset| 
 	puts "subgraph cluster_"+name+" {"
 		puts "label="+name+" ;"
-		puts replicaset.keys.join("->")+"->"+replicaset.keys[0]
+		puts replicaset.keys.join("->")+"->"+replicaset.keys[0]+" [style=dotted]"
 		replicaset.each{ |h,addr|  puts h+" [label=\""+addr+"\"]" }
 	if (arbiters.has_key?(name)) then puts arbiters[name].gsub("-","").gsub(":","")+"[label=\"Arbiter on "+arbiters[name]+"\"]" end
 
@@ -59,7 +60,7 @@ mongoss.each{|h,addr|
 }
 
 mongoss.each{|h,addr| 
-	puts h+"->"+configs.keys[0]+" [lhead=cluster_config, style=dotted]"
+	#puts h+"->"+configs.keys[0]+" [lhead=cluster_config, style=dotted]"
 		subgraph.each{|name,bob|
 			puts h+"->"+bob.keys[0]+" [lhead=cluster_"+name+"]"
 		}
