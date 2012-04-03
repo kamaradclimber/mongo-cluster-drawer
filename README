@@ -3,3 +3,9 @@ This is a very small ruby script to draw a very basic architecture graph of your
 Usage : 
 ./generate HOST PORT | dot -Tpng -o arch.png
 HOST PORT  indicate one entry point of your cluster (a mongoS)
+
+
+Requirements : 
+to use this, you need graphviz installed, ruby and the mongo gem.
+aptitude install graphviz ruby
+gem install mongo
