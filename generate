@@ -1,0 +1,67 @@
+#!/usr/bin/env ruby
+
+require 'mongo'
+
+host='10.20.13.4'
+port=27017
+
+subgraph = Hash.new
+id = 0;
+
+@conn = Mongo::Connection.new(host,port)
+	@isdbgrid  = {"isdbgrid" => 1}
+	@conn["admin"].command(@isdbgrid)["ok"] ==1
+	shards= Hash.new
+	@conn["config"]["shards"].find().each { |shard|
+		s = shard["host"]
+			sshard = Hash.new
+			replicasetname,instances = s.split(/\//)
+			instances.split(/,/).each { |instance| 
+				sshard[instance.gsub("-","").gsub(":","").downcase] = instance.downcase
+			}
+		subgraph[replicasetname] = sshard
+	}
+
+arbiters = Hash.new
+	subgraph.each { |name, replicaset|
+		hh,pp = replicaset.values[0].split(/:/)
+			cconn = Mongo::Connection.new(hh,pp)
+			cconn["admin"].command({"isMaster" => 1})["arbiters"].each{ |arbiter| arbiters[name] = arbiter.downcase}
+	}
+
+
+configs = Hash.new
+@cmdLineOpts  = {"getCmdLineOpts" => 1}
+@conn["admin"].command(@cmdLineOpts)["parsed"]["configdb"].split(/,/).each { |conf| configs[conf.gsub("-","").gsub(":","").downcase] = conf.downcase}
+
+mongoss = Hash.new
+@conn["config"]["mongos"].find().each { |mongos| mongoss[mongos["_id"].gsub("-","").gsub(":","").downcase] = mongos["_id"].downcase }
+
+
+puts "digraph G {"
+puts "compound=true"
+puts "nodesep=1.0;"
+subgraph.each{ |name,replicaset| 
+	puts "subgraph cluster_"+name+" {"
+		puts "label="+name+" ;"
+		puts replicaset.keys.join("->")+"->"+replicaset.keys[0]
+		replicaset.each{ |h,addr|  puts h+" [label=\""+addr+"\"]" }
+	if (arbiters.has_key?(name)) then puts arbiters[name].gsub("-","").gsub(":","")+"[label=\"Arbiter on "+arbiters[name]+"\"]" end
+
+		puts "}"
+}
+puts "subgraph cluster_config {"
+puts "label=\"conf dbs\";"
+configs.each { |h,addr| puts h+" [label=\""+addr+"\"]" }
+puts "}"
+mongoss.each{|h,addr| 
+	puts h+" [label=\""+addr+"\"]"
+}
+
+mongoss.each{|h,addr| 
+	puts h+"->"+configs.keys[0]+" [lhead=cluster_config, style=dotted]"
+		subgraph.each{|name,bob|
+			puts h+"->"+bob.keys[0]+" [lhead=cluster_"+name+"]"
+		}
+}
+puts "}"
